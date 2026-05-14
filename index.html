@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>카카오맵 - 주변 학습 공간 찾기</title>
+    <style>
+        /* 기본 스타일 */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; font-family: 'Malgun Gothic', sans-serif; }
+
+        .container { display: flex; width: 100%; height: 100vh; }
+
+        /* 왼쪽 사이드바 */
+        #sidebar {
+            width: 350px;
+            height: 100%;
+            background: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #ddd;
+            z-index: 10;
+        }
+
+        .search-box { padding: 20px; background: #fff; border-bottom: 1px solid #eee; }
+        .search-box h2 { font-size: 1.2rem; margin-bottom: 10px; color: #333; }
+        .input-group { display: flex; gap: 5px; }
+        .search-box input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        .search-box button { padding: 10px 15px; background: #fee500; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+
+        #placesList { flex: 1; overflow-y: auto; list-style: none; padding: 10px; }
+        #placesList li { padding: 15px; border-bottom: 1px solid #eee; background: white; margin-bottom: 8px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        #placesList li:hover { background: #f0f0f0; cursor: pointer; border-color: #fee500; }
+        .place-name { font-weight: bold; display: block; margin-bottom: 5px; color: #007bff; }
+        .place-addr { font-size: 0.85rem; color: #666; }
+
+        /* 오른쪽 지도 영역 */
+        #map { flex: 1; height: 100%; }
+
+        /* 이모지 마커 스타일 */
+        .emoji-marker {
+            font-size: 30px;
+            cursor: pointer;
+            text-shadow: 2px 2px 2px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
+        }
+        .emoji-marker:hover { transform: scale(1.2); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="sidebar">
+        <div class="search-box">
+            <h2>📍 주변 탐색</h2>
+            <div class="input-group">
+                <input type="text" id="keyword" placeholder="예: 강남역 카페, 스터디카페">
+                <button onclick="searchPlaces()">검색</button>
+            </div>
+        </div>
+        <ul id="placesList"></ul>
+    </div>
+    
+    <div id="map"></div>
+</div>
+
+<script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=b2b456c0ff89af558c891b5e4cfb7736&libraries=services"></script>
+
+<script>
+    let map; 
+    let ps;  
+    let infowindow; 
+    let markers = []; // 마커를 관리하기 위한 배열
+
+    window.onload = function() {
+        kakao.maps.load(() => {
+            initMap();
+        });
+    };
+
+    function initMap() {
+        const mapContainer = document.getElementById('map'); 
+        const mapOption = {
+            center: new kakao.maps.LatLng(37.566826, 126.9786567),
+            level: 5 
+        };
+
+        map = new kakao.maps.Map(mapContainer, mapOption);
+        ps = new kakao.maps.services.Places();
+        infowindow = new kakao.maps.InfoWindow({zIndex: 1, removable: true});
+
+        // 현재 위치 가져오기
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                const locPosition = new kakao.maps.LatLng(position.coords.latitude, position.coords.longitude);
+                map.setCenter(locPosition);
+                addEmojiMarker(locPosition, "📍", "내 현재 위치", "현재 위치에 있습니다.");
+            });
+        }
+    }
+
+    // 1. 장소 검색 함수
+    function searchPlaces() {
+        const keyword = document.getElementById('keyword').value;
+
+        if (!keyword.replace(/^\s+|\s+$/g, '')) {
+            alert('검색어를 입력해주세요!');
+            return;
+        }
+
+        // 검색 전 기존 데이터 삭제
+        clearMap();
+
+        // 카카오 장소 검색 API 호출
+        ps.keywordSearch(keyword, placesSearchCB);
+    }
+
+    // 2. 검색 결과 콜백
+    function placesSearchCB(data, status) {
+        if (status === kakao.maps.services.Status.OK) {
+            displayResults(data);
+        } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
+            alert('검색 결과가 없습니다.');
+        } else {
+            alert('오류가 발생했습니다.');
+        }
+    }
+
+    // 3. 결과 표시 (마커 + 리스트)
+    function displayResults(places) {
+        const listEl = document.getElementById('placesList');
+        const bounds = new kakao.maps.LatLngBounds();
+
+        for (let i = 0; i < places.length; i++) {
+            const placePosition = new kakao.maps.LatLng(places[i].y, places[i].x);
+            
+            // 키워드에 따른 이모지 선택
+            let emoji = "📍";
+            if (places[i].category_name.includes("카페")) emoji = "☕";
+            if (places[i].place_name.includes("독서실")) emoji = "📖";
+            if (places[i].place_name.includes("스터디")) emoji = "📝";
+
+            // 마커 생성
+            const marker = addEmojiMarker(placePosition, emoji, places[i].place_name, places[i].address_name);
+            
+            // 리스트 아이템 생성
+            const itemEl = createListItem(places[i]);
+
+            bounds.extend(placePosition);
+
+            // 아이템 클릭 이벤트
+            itemEl.onclick = function() {
+                map.panTo(placePosition);
+                showInfoWindow(marker, places[i].place_name, places[i].address_name);
+            };
+
+            listEl.appendChild(itemEl);
+        }
+        map.setBounds(bounds);
+    }
+
+    // 4. 이모지 마커(커스텀 오버레이) 생성 함수
+    function addEmojiMarker(position, emoji, title, address) {
+        const content = document.createElement('div');
+        content.className = 'emoji-marker';
+        content.innerHTML = emoji;
+
+        const customOverlay = new kakao.maps.CustomOverlay({
+            position: position,
+            content: content,
+            clickable: true
+        });
+
+        customOverlay.setMap(map);
+
+        // 이모지 클릭 시 정보창 표시
+        content.onclick = function() {
+            showInfoWindow(customOverlay, title, address);
+        };
+
+        markers.push(customOverlay); // 배열에 저장하여 나중에 삭제 가능하게 함
+        return customOverlay;
+    }
+
+    // 5. 정보창 표시 함수
+    function showInfoWindow(overlay, title, address) {
+        const content = `
+            <div style="padding:10px; min-width:150px;">
+                <strong style="display:block;margin-bottom:5px;">${title}</strong>
+                <span style="font-size:12px;color:#666;">${address}</span>
+            </div>`;
+        infowindow.setContent(content);
+        infowindow.open(map, overlay);
+    }
+
+    // 6. 리스트 아이템 생성 함수
+    function createListItem(place) {
+        const el = document.createElement('li');
+        el.innerHTML = `
+            <span class="place-name">${place.place_name}</span>
+            <span class="place-addr">${place.address_name}</span>
+        `;
+        return el;
+    }
+
+    // 7. 지도 및 리스트 초기화 함수
+    function clearMap() {
+        // 기존 마커(오버레이) 모두 제거
+        for (let i = 0; i < markers.length; i++) {
+            markers[i].setMap(null);
+        }
+        markers = [];
+
+        // 리스트 비우기
+        document.getElementById('placesList').innerHTML = '';
+        
+        // 정보창 닫기
+        infowindow.close();
+    }
+</script>
+
+</body>
+</html>
