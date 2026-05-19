@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>카카오맵 - 주변 학습 공간 찾기</title>
+    <title>카카오맵 - 자연과 함께</title>
     <style>
         /* 기본 스타일 */
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -23,15 +23,22 @@
         }
 
         .search-box { padding: 20px; background: #fff; border-bottom: 1px solid #eee; }
-        .search-box h2 { font-size: 1.2rem; margin-bottom: 10px; color: #333; }
-        .input-group { display: flex; gap: 5px; }
+        .search-box h2 { font-size: 1.2rem; margin-bottom: 10px; color: #2e7d32; }
+        .input-group { display: flex; gap: 5px; margin-bottom: 15px; }
         .search-box input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
-        .search-box button { padding: 10px 15px; background: #fee500; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .search-box button { padding: 10px 15px; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .search-box button:hover { background: #1b5e20; }
 
+        /* 카테고리 탭 스타일 */
+        .tab-group { display: flex; gap: 5px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+        .tab-btn { flex: 1; padding: 8px 0; border: 1px solid #ccc; background: #fff; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: bold; color: #555; }
+        .tab-btn.active { background: #2e7d32; color: #fff; border-color: #2e7d32; }
+
+        /* 결과 리스트 */
         #placesList { flex: 1; overflow-y: auto; list-style: none; padding: 10px; }
         #placesList li { padding: 15px; border-bottom: 1px solid #eee; background: white; margin-bottom: 8px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        #placesList li:hover { background: #f0f0f0; cursor: pointer; border-color: #fee500; }
-        .place-name { font-weight: bold; display: block; margin-bottom: 5px; color: #007bff; }
+        #placesList li:hover { background: #f1f8e9; cursor: pointer; border-color: #2e7d32; }
+        .place-name { font-weight: bold; display: block; margin-bottom: 5px; color: #2e7d32; }
         .place-addr { font-size: 0.85rem; color: #666; }
 
         /* 오른쪽 지도 영역 */
@@ -45,6 +52,64 @@
             transition: transform 0.2s;
         }
         .emoji-marker:hover { transform: scale(1.2); }
+
+        /* 현재 위치 파란 점 스타일 */
+        .current-location-marker {
+            width: 14px;
+            height: 14px;
+            background: #007bff;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 8px rgba(0,123,255,0.6);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0,123,255,0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(0,123,255,0); }
+            100% { box-shadow: 0 0 0 0 rgba(0,123,255,0); }
+        }
+
+        /* 커스텀 말풍선 오버레이 스타일 */
+        .custom-popup {
+            position: absolute;
+            bottom: 45px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #fff;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            box-shadow: 0px 2px 10px rgba(0,0,0,0.2);
+            padding: 12px;
+            min-width: 200px;
+            font-size: 13px;
+            z-index: 20;
+        }
+        .custom-popup::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 8px 8px 0;
+            border-style: solid;
+            border-color: #fff transparent;
+            display: block;
+            width: 0;
+        }
+        .popup-close {
+            position: absolute;
+            top: 5px;
+            right: 8px;
+            cursor: pointer;
+            color: #999;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .popup-close:hover { color: #333; }
+        .popup-title { font-weight: bold; color: #2e7d32; margin-bottom: 6px; padding-right: 15px; }
+        .popup-phone { color: #666; margin-bottom: 6px; font-size: 12px; }
+        .popup-link { display: inline-block; color: #007bff; text-decoration: none; font-weight: bold; margin-top: 4px; }
+        .popup-link:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -52,10 +117,16 @@
 <div class="container">
     <div id="sidebar">
         <div class="search-box">
-            <h2>📍 주변 탐색</h2>
+            <h2>🌿 자연과 함께</h2>
             <div class="input-group">
-                <input type="text" id="keyword" placeholder="예: 강남역 카페, 스터디카페">
+                <input type="text" id="keyword" placeholder="동네나 장소를 입력하세요">
                 <button onclick="searchPlaces()">검색</button>
+            </div>
+            <div class="tab-group">
+                <button class="tab-btn active" onclick="switchTab('공원', this)">공원</button>
+                <button class="tab-btn" onclick="switchTab('산', this)">산</button>
+                <button class="tab-btn" onclick="switchTab('강', this)">강</button>
+                <button class="tab-btn" onclick="switchTab('호수', this)">호수</button>
             </div>
         </div>
         <ul id="placesList"></ul>
@@ -69,8 +140,9 @@
 <script>
     let map; 
     let ps;  
-    let infowindow; 
-    let markers = []; // 마커를 관리하기 위한 배열
+    let currentPopup = null; // 현재 열려있는 커스텀 말풍선 객체
+    let markers = []; // 검색된 장소 마커 배열
+    let currentTabKeyword = '공원'; // 현재 선택된 탭 키워드
 
     window.onload = function() {
         kakao.maps.load(() => {
@@ -87,35 +159,60 @@
 
         map = new kakao.maps.Map(mapContainer, mapOption);
         ps = new kakao.maps.services.Places();
-        infowindow = new kakao.maps.InfoWindow({zIndex: 1, removable: true});
 
-        // 현재 위치 가져오기
+        // 현재 위치 가져오기 및 파란 점 표시
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(function(position) {
                 const locPosition = new kakao.maps.LatLng(position.coords.latitude, position.coords.longitude);
                 map.setCenter(locPosition);
-                addEmojiMarker(locPosition, "📍", "내 현재 위치", "현재 위치에 있습니다.");
+                displayCurrentLocation(locPosition);
             });
         }
     }
 
-    // 1. 장소 검색 함수
-    function searchPlaces() {
-        const keyword = document.getElementById('keyword').value;
+    // 내 현재 위치를 파란 점으로 지도에 표시하는 함수
+    function displayCurrentLocation(position) {
+        const content = document.createElement('div');
+        content.className = 'current-location-marker';
 
-        if (!keyword.replace(/^\s+|\s+$/g, '')) {
-            alert('검색어를 입력해주세요!');
-            return;
-        }
-
-        // 검색 전 기존 데이터 삭제
-        clearMap();
-
-        // 카카오 장소 검색 API 호출
-        ps.keywordSearch(keyword, placesSearchCB);
+        const currentOverlay = new kakao.maps.CustomOverlay({
+            position: position,
+            content: content
+        });
+        currentOverlay.setMap(map);
     }
 
-    // 2. 검색 결과 콜백
+    // 탭 전환 함수
+    function switchTab(category, element) {
+        // 탭 버튼 활성화 스타일 변경
+        const tabButtons = document.querySelectorAll('.tab-btn');
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        element.classList.add('active');
+
+        // 현재 선택된 탭 정보 저장 및 검색 실행
+        currentTabKeyword = category;
+        searchPlaces();
+    }
+
+    // 장소 검색 함수
+    function searchPlaces() {
+        const searchInput = document.getElementById('keyword').value.trim();
+        
+        // 사용자가 입력한 검색어와 현재 선택된 탭(공원/산/강/호수)을 조합하여 검색 품질 향상
+        // 예: 사용자가 '마포' 입력 후 '공원' 탭 선택 시 -> '마포 공원'으로 검색 수행
+        let finalKeyword = currentTabKeyword;
+        if (searchInput !== '') {
+            finalKeyword = searchInput + " " + currentTabKeyword;
+        }
+
+        // 검색 전 기존 마커 및 말풍선 삭제
+        clearMap();
+
+        // 카카오 장소 검색 API 호출 (동네이름+자연 키워드 조합)
+        ps.keywordSearch(finalKeyword, placesSearchCB);
+    }
+
+    // 검색 결과 콜백
     function placesSearchCB(data, status) {
         if (status === kakao.maps.services.Status.OK) {
             displayResults(data);
@@ -126,7 +223,7 @@
         }
     }
 
-    // 3. 결과 표시 (마커 + 리스트)
+    // 결과 표시 (마커 + 리스트)
     function displayResults(places) {
         const listEl = document.getElementById('placesList');
         const bounds = new kakao.maps.LatLngBounds();
@@ -134,24 +231,26 @@
         for (let i = 0; i < places.length; i++) {
             const placePosition = new kakao.maps.LatLng(places[i].y, places[i].x);
             
-            // 키워드에 따른 이모지 선택
-            let emoji = "📍";
-            if (places[i].category_name.includes("카페")) emoji = "☕";
-            if (places[i].place_name.includes("독서실")) emoji = "📖";
-            if (places[i].place_name.includes("스터디")) emoji = "📝";
+            // 요구사항에 맞춰 카테고리/이름별 이모지 분기 처리
+            let emoji = "🌳"; // 기본값 (공원)
+            if (currentTabKeyword === "산" || places[i].place_name.includes("산")) emoji = "⛰️";
+            if (places[i].place_name.includes("바다") || places[i].category_name.includes("해수욕장")) emoji = "🌊";
+            if (currentTabKeyword === "강" || places[i].place_name.includes("강")) emoji = "💧";
+            if (currentTabKeyword === "호수" || places[i].place_name.includes("호수") || places[i].place_name.includes("저수지")) emoji = "💧";
+            if (currentTabKeyword === "공원" || places[i].place_name.includes("공원")) emoji = "🌳";
 
-            // 마커 생성
-            const marker = addEmojiMarker(placePosition, emoji, places[i].place_name, places[i].address_name);
+            // 마커 생성 및 정보 저장
+            const marker = addEmojiMarker(placePosition, emoji, places[i]);
             
             // 리스트 아이템 생성
             const itemEl = createListItem(places[i]);
 
             bounds.extend(placePosition);
 
-            // 아이템 클릭 이벤트
+            // 리스트 아이템 클릭 시 지도 이동 및 커스텀 팝업 열기
             itemEl.onclick = function() {
                 map.panTo(placePosition);
-                showInfoWindow(marker, places[i].place_name, places[i].address_name);
+                showCustomPopup(placePosition, places[i]);
             };
 
             listEl.appendChild(itemEl);
@@ -159,8 +258,8 @@
         map.setBounds(bounds);
     }
 
-    // 4. 이모지 마커(커스텀 오버레이) 생성 함수
-    function addEmojiMarker(position, emoji, title, address) {
+    // 이모지 마커 생성 함수
+    function addEmojiMarker(position, emoji, placeData) {
         const content = document.createElement('div');
         content.className = 'emoji-marker';
         content.innerHTML = emoji;
@@ -173,27 +272,55 @@
 
         customOverlay.setMap(map);
 
-        // 이모지 클릭 시 정보창 표시
+        // 이모지 마커 클릭 시 커스텀 말풍선 팝업 열기
         content.onclick = function() {
-            showInfoWindow(customOverlay, title, address);
+            showCustomPopup(position, placeData);
         };
 
-        markers.push(customOverlay); // 배열에 저장하여 나중에 삭제 가능하게 함
+        markers.push(customOverlay); 
         return customOverlay;
     }
 
-    // 5. 정보창 표시 함수
-    function showInfoWindow(overlay, title, address) {
-        const content = `
-            <div style="padding:10px; min-width:150px;">
-                <strong style="display:block;margin-bottom:5px;">${title}</strong>
-                <span style="font-size:12px;color:#666;">${address}</span>
-            </div>`;
-        infowindow.setContent(content);
-        infowindow.open(map, overlay);
+    // 커스텀 말풍선 팝업 생성 및 표시 함수
+    function showCustomPopup(position, placeData) {
+        // 이전에 열려있던 커스텀 말풍선이 있다면 지도에서 제거
+        if (currentPopup) {
+            currentPopup.setMap(null);
+        }
+
+        const popupContent = document.createElement('div');
+        popupContent.className = 'custom-popup';
+        
+        // 전화번호가 없을 경우 '번호 없음' 처리
+        const phoneNumber = placeData.phone ? placeData.phone : '전화번호 없음';
+
+        popupContent.innerHTML = `
+            <span class="popup-close" onclick="closePopup()">X</span>
+            <div class="popup-title">${placeData.place_name}</div>
+            <div class="popup-phone">📞 ${phoneNumber}</div>
+            <div style="color: #666; font-size:12px;">📍 ${placeData.address_name}</div>
+            <a href="${placeData.place_url}" target="_blank" class="popup-link">카카오맵 바로가기 →</a>
+        `;
+
+        // 새로운 커스텀 오버레이로 말풍선 구현
+        currentPopup = new kakao.maps.CustomOverlay({
+            position: position,
+            content: popupContent,
+            yAnchor: 1 
+        });
+
+        currentPopup.setMap(map);
     }
 
-    // 6. 리스트 아이템 생성 함수
+    // 말풍선 닫기 함수
+    function closePopup() {
+        if (currentPopup) {
+            currentPopup.setMap(null);
+            currentPopup = null;
+        }
+    }
+
+    // 리스트 아이템 HTML 생성 함수
     function createListItem(place) {
         const el = document.createElement('li');
         el.innerHTML = `
@@ -203,7 +330,7 @@
         return el;
     }
 
-    // 7. 지도 및 리스트 초기화 함수
+    // 지도 및 리스트 초기화 함수
     function clearMap() {
         // 기존 마커(오버레이) 모두 제거
         for (let i = 0; i < markers.length; i++) {
@@ -214,8 +341,8 @@
         // 리스트 비우기
         document.getElementById('placesList').innerHTML = '';
         
-        // 정보창 닫기
-        infowindow.close();
+        // 말풍선 닫기
+        closePopup();
     }
 </script>
 
